@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "led.h"
+#include "uart.h"
 #include <xc.h>
 
 void int_start_stop(void);

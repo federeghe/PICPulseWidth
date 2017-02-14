@@ -10,6 +10,8 @@
 #include "led.h"
 #include "uart.h"
 
+#include <stdio.h>
+
 #define WAIT_INTERVAL_MS 500
 
 sys_state_t sys_state;
@@ -28,7 +30,7 @@ void main(void) {
     
     status_led_blink(5, 500);
     
-    UART_Write_Text("PIC Pulse Width Measure Device.\nWelcome.\n");
+    UART_Write_Text("== PIC Pulse Width Measure Device\r\n== Welcome\r\n");
 
     LED_PROGRESS = 0;
     
@@ -49,6 +51,9 @@ void main(void) {
 }
 
 void error_routine(void) {
+    if (sys_state == ERROR) {
+        UART_Write_Text("== ERROR\r\n");
+    }
     while(ERROR == sys_state) {
         status_led_blink(1, 200);
     }
@@ -60,17 +65,21 @@ void mainloop(void) {
         goto error;
     }
     
+    // Reset the timer and arm the gate timer
+    TMR3 = 0;
+    T3GCONbits.T3GGO = 1;   // Cleared automatically
+    
     sys_state = WAIT_COMPLETION;
     
     LED_PROGRESS = 1;
-    
     // Set 1 the pin of starting the counting
-    PORTAbits.RA0 = 1;
+    LATAbits.LATA0 = 1;
     
-    while (WAIT_COMPLETION  == sys_state /* && 0 == PORTDbits.RD1 */ );
+    while (WAIT_COMPLETION  == sys_state  && 0 == PORTDbits.RD1);
     
-    LED_PROGRESS = 0;
-    
+    LED_PROGRESS = 0;    
+    LATAbits.LATA0 = 0;
+
     if (sys_state != WAIT_COMPLETION) {
         if (sys_state == PAUSE)
             return;
@@ -78,6 +87,11 @@ void mainloop(void) {
     }
     
     sys_state = COMPLETED;
+    
+    int value = TMR3;
+    char text[20];
+    sprintf(text, "%d\r\n", value);
+    UART_Write_Text(text);
     
     // TODO Leggere il valore
 
@@ -102,6 +116,9 @@ void setup(void) {
     // Enable interrupt on PORTB/INT0 and Timer0
     INTCON = 0b11110000;
     
+    // Enable interrupt on Timer3
+    PIE2bits.TMR3IE = 1;
+    
     // Enable pull-up on PORTB
     INTCON2 = 0b00000000;
     
@@ -114,8 +131,16 @@ void setup(void) {
     // Set the Timer3
     T3CONbits.TMR3CS = 0b01;    // Clock source = Fosc
     T3CONbits.T3CKPS = 0b00;    // Prescale 1:1
+    T3CONbits.RD16 = 1;         // Enable read/write at 16 bit
     
+    T3GCONbits.TMR3GE = 1;   // Enalbe the Gate function
+    T3GCONbits.T3GPOL = 1;   // Count when high
+    T3GCONbits.T3GSS = 0b00; // Gate is the pin
+    T3GCONbits.T3GTM = 0;    // Disable the gate toggle function
+    T3GCONbits.T3GSPM = 1;   // Enable the single-pulse mode
     
+    T3CONbits.TMR3ON = 1;   // Enable the timer
+   
     // Setup the ports
     TRISA = 0b00000000;
     TRISB = 0b11000001;

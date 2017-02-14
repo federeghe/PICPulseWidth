@@ -11,9 +11,9 @@
 void UART_Init(const long int baudrate)
 {
     int n = _XTAL_FREQ / baudrate / 64 - 1;
-    BRGH = 1;
-    BRG16= 1;
-    SPBRGH = (n >> 8) & 0xFF;
+    BRGH = 0;
+    BRG16= 0;
+    //SPBRGH = (n >> 8) & 0xFF;
     SPBRG = n & 0xFF;                                    //Writing SPBRG Register
     SYNC = 0;                                     //Setting Asynchronous Mode, ie UART
     SPEN = 1;                                     //Enables Serial Port
